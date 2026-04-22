@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Supply Chain Anti-Counterfeiting</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%231a2744'/%3E%3Cpath fill='%23c9a227' d='M32 20a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm0 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12z'/%3E%3Cpath fill='%23c9a227' d='M38.5 13.2l-2.6 4.5a14 14 0 0 0-7.8 0l-2.6-4.5-5.2 3 2.6 4.5a14 14 0 0 0-3.9 6.8H14v6h4a14 14 0 0 0 3.9 6.8l-2.6 4.5 5.2 3 2.6-4.5a14 14 0 0 0 7.8 0l2.6 4.5 5.2-3-2.6-4.5A14 14 0 0 0 44 33h4v-6h-4a14 14 0 0 0-3.9-6.8l2.6-4.5-5.2-3z'/%3E%3C/svg%3E" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:        #1a2744;
+      --navy-light:  #243459;
+      --navy-pale:   #eef0f5;
+      --gold:        #c9a227;
+      --gold-light:  #f0e0a0;
+      --gold-pale:   #fdf8ec;
+      --success-bg:  #f0faf4;
+      --success-bd:  #9fd4b8;
+      --success-tx:  #1a6640;
+      --error-bg:    #fdf2f2;
+      --error-bd:    #f0b0b0;
+      --error-tx:    #8a1c1c;
+      --warn-bg:     #fdf8ec;
+      --warn-bd:     #e8c86a;
+      --warn-tx:     #7a5800;
+      --border:      #dde0e8;
+      --bg:          #f2f3f7;
+      --text:        #0f1624;
+      --muted:       #5a6178;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 3rem;
+    }
+
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 1.5rem 1rem 1.25rem;
+      text-align: center;
+      border-bottom: 3px solid var(--gold);
+      margin-bottom: 2rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 500; color: #fff; margin-bottom: 0.25rem; }
+    header p  { font-size: 0.8rem; color: var(--gold-light); opacity: 0.9; }
+
+    #wallet-bar {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 1.75rem; flex-wrap: wrap; padding: 0 1rem;
+    }
+
+    #wallet-status {
+      font-size: 0.8rem; color: var(--muted); padding: 6px 14px;
+      background: #fff; border: 0.5px solid var(--border); border-radius: 20px;
+    }
+    #wallet-status.connected { color: var(--success-tx); border-color: var(--success-bd); background: var(--success-bg); }
+
+    #role-tabs {
+      display: flex; justify-content: center; gap: 8px;
+      margin-bottom: 1.5rem; flex-wrap: wrap; padding: 0 1rem;
+    }
+
+    .role-tab {
+      padding: 8px 22px; border-radius: 8px; border: 0.5px solid var(--border);
+      background: #fff; cursor: pointer; font-size: 0.875rem;
+      font-weight: 500; color: var(--muted); transition: all 0.15s;
+    }
+    .role-tab:hover { background: var(--navy-pale); color: var(--navy); border-color: #bbc0d0; }
+    .role-tab.active { background: var(--navy); color: #fff; border-color: var(--navy); box-shadow: 0 0 0 2px var(--gold); }
+
+    .card {
+      background: #fff; border: 0.5px solid var(--border); border-radius: 12px;
+      padding: 1.5rem; max-width: 600px; margin: 0 auto 1.5rem;
+    }
+    .card h2 {
+      font-size: 1rem; font-weight: 500; color: var(--navy);
+      margin-bottom: 0.35rem; padding-bottom: 0.6rem;
+      border-bottom: 2px solid var(--gold); display: inline-block;
+    }
+    .card .subtitle { font-size: 0.8rem; color: var(--muted); margin: 0.6rem 0 1.25rem; }
+
+    .section-divider { border: none; border-top: 0.5px solid #e8eaf0; margin: 1.5rem 0; }
+    .section-label { font-size: 0.8rem; font-weight: 500; color: var(--navy); margin-bottom: 0.3rem; }
+    .section-sublabel { font-size: 0.75rem; color: var(--muted); margin-bottom: 1rem; }
+
+    .field { margin-bottom: 1rem; }
+
+    label { display: block; font-size: 0.8rem; color: var(--navy); margin-bottom: 4px; font-weight: 500; }
+
+    input, select, textarea {
+      width: 100%; padding: 8px 12px; border: 0.5px solid #c8ccd8;
+      border-radius: 8px; font-size: 0.875rem; font-family: inherit;
+      background: #fff; color: var(--text); outline: none; transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(26,39,68,0.1); }
+
+    .check-row { display: flex; align-items: center; gap: 10px; }
+    .check-row input[type="checkbox"] { width: auto; accent-color: var(--navy); }
+    .check-row label { margin: 0; cursor: pointer; font-weight: 400; color: var(--text); }
+
+    button {
+      padding: 9px 22px; border-radius: 8px; border: none;
+      background: var(--navy); color: #fff; font-size: 0.875rem;
+      font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    button:hover { background: var(--navy-light); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.secondary { background: #fff; color: var(--navy); border: 0.5px solid var(--border); }
+    button.secondary:hover { background: var(--navy-pale); }
+    button.gold-btn { background: var(--gold); color: var(--navy); font-weight: 600; border: none; }
+    button.gold-btn:hover { background: #b8911e; }
+    .connect-btn { background: var(--gold); color: var(--navy); font-weight: 600; border: none; }
+    .connect-btn:hover { background: #b8911e; }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .status {
+      margin-top: 1rem; padding: 10px 14px; border-radius: 8px;
+      font-size: 0.825rem; display: none;
+    }
+    .status.success { background: var(--success-bg); border: 0.5px solid var(--success-bd); color: var(--success-tx); display: block; }
+    .status.error   { background: var(--error-bg);   border: 0.5px solid var(--error-bd);   color: var(--error-tx);   display: block; }
+    .status.loading { background: var(--navy-pale);  border: 0.5px solid #bbc0d0;           color: var(--navy);       display: block; }
+    .status.warning { background: var(--warn-bg);    border: 0.5px solid var(--warn-bd);    color: var(--warn-tx);    display: block; }
+
+    .hold-warning {
+      padding: 10px 14px; border-radius: 8px; font-size: 0.825rem;
+      background: var(--error-bg); border: 0.5px solid var(--error-bd);
+      color: var(--error-tx); margin-bottom: 1rem; display: none;
+    }
+    .hold-warning.visible { display: block; }
+
+    #qr-container {
+      margin-top: 1.25rem; display: none;
+      flex-direction: column; align-items: center; gap: 10px;
+    }
+    #qr-container.visible { display: flex; }
+    #qr-box { padding: 12px; background: #fff; border: 2px solid var(--gold); border-radius: 8px; display: inline-block; }
+    #qr-label { font-size: 0.75rem; color: var(--muted); text-align: center; }
+
+    /* ── QR Scanner ─────────────────────────────────────────── */
+    #scanner-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--navy-pale);
+      border: 1px solid var(--navy);
+      border-radius: 10px;
+    }
+    #scanner-container.visible { display: flex; }
+
+    #scanner-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    #scanner-video {
+      width: 100%;
+      border-radius: 8px;
+      display: block;
+      background: #000;
+    }
+
+    /* Targeting reticle overlay */
+    #scanner-wrap::after {
+      content: "";
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 160px; height: 160px;
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    #scanner-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    #scanner-result {
+      font-size: 0.825rem;
+      color: var(--success-tx);
+      background: var(--success-bg);
+      border: 0.5px solid var(--success-bd);
+      border-radius: 8px;
+      padding: 8px 14px;
+      display: none;
+      width: 100%;
+      text-align: center;
+    }
+    #scanner-result.visible { display: block; }
+
+    /* ── Tables ────────────────────────────────────────────── */
+    .history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 1rem; }
+    .history-table th {
+      text-align: left; padding: 7px 8px;
+      background: var(--navy-pale); border-bottom: 1px solid var(--navy);
+      color: var(--navy); font-weight: 500;
+    }
+    .history-table th:first-child { border-radius: 6px 0 0 0; }
+    .history-table th:last-child  { border-radius: 0 6px 0 0; }
+    .history-table td { padding: 8px 8px; border-bottom: 0.5px solid #eaecf2; vertical-align: top; }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--navy-pale); }
+
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 1rem; }
+    .info-cell { background: var(--navy-pale); border-radius: 8px; padding: 10px 12px; border: 0.5px solid #d0d4e4; }
+    .info-cell .info-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+    .info-cell .info-value { font-size: 0.875rem; font-weight: 500; word-break: break-all; color: var(--navy); }
+
+    .badge { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+    .badge.authentic { background: var(--success-bg); color: var(--success-tx); border: 0.5px solid var(--success-bd); }
+    .badge.hold      { background: var(--error-bg);   color: var(--error-tx);   border: 0.5px solid var(--error-bd); }
+
+    .condition-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    .dot-good    { background: #1a6640; }
+    .dot-warning { background: #996600; }
+    .dot-danger  { background: #8a1c1c; }
+
+    .panel { display: none; padding: 0 1rem; }
+    .panel.active { display: block; }
+    .addr { font-family: monospace; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Supply Chain Anti-Counterfeiting</h1>
+  <p>Blockchain-based product traceability prototype</p>
+</header>
+
+<div id="wallet-bar">
+  <button class="connect-btn" id="connect-btn" onclick="connectWallet()">Connect MetaMask</button>
+  <span id="wallet-status">Not connected</span>
+</div>
+
+<div id="role-tabs">
+  <button class="role-tab active" onclick="switchRole('manufacturer', event)">Manufacturer</button>
+  <button class="role-tab" onclick="switchRole('logistics', event)">Logistics</button>
+  <button class="role-tab" onclick="switchRole('retailer', event)">Retailer</button>
+  <button class="role-tab" onclick="switchRole('consumer', event)">Consumer / Verify</button>
+</div>
+
+<!-- MANUFACTURER -->
+<div class="panel active" id="panel-manufacturer">
+  <div class="card">
+    <h2>Register a new product</h2>
+    <p class="subtitle">Creates a unique on-chain record and generates a QR code for physical tagging.</p>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="m-productId" placeholder="e.g. WIDGET-001" />
+    </div>
+    <div class="field">
+      <label>Product name</label>
+      <input type="text" id="m-name" placeholder="e.g. Industrial Valve A" />
+    </div>
+    <div class="field">
+      <label>Metadata (batch, origin, notes)</label>
+      <input type="text" id="m-metadata" placeholder="e.g. Batch #42, Huntingdon PA" />
+    </div>
+    <button onclick="registerProduct()">Register product</button>
+    <div class="status" id="m-status"></div>
+    <div id="qr-container">
+      <hr class="section-divider" />
+      <p style="font-size:0.8rem;color:var(--muted);text-align:center;">Scan or print this QR code and attach it to the physical product.</p>
+      <div id="qr-box"><div id="qr-code"></div></div>
+      <p id="qr-label" class="addr"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Update product condition</h2>
+    <p class="subtitle">Flag a product as damaged or contaminated and place it on hold to block further transfers.</p>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="m-cond-productId" placeholder="e.g. WIDGET-001" />
+    </div>
+    <div class="field">
+      <label>Condition</label>
+      <select id="m-condition">
+        <option value="Good">Good - no issues</option>
+        <option value="Damaged">Damaged - physical damage observed</option>
+        <option value="Contaminated">Contaminated - contamination suspected</option>
+        <option value="Under inspection">Under inspection</option>
+        <option value="Resolved">Resolved - issue cleared</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" id="m-cond-notes" placeholder="e.g. Box crushed on arrival, contents intact" />
+    </div>
+    <div class="field check-row">
+      <input type="checkbox" id="m-onhold" />
+      <label for="m-onhold">Place product on hold (blocks all custody transfers)</label>
+    </div>
+    <button onclick="updateCondition('m')">Update condition</button>
+    <div class="status" id="m-cond-status"></div>
+  </div>
+</div>
+
+<!-- LOGISTICS -->
+<div class="panel" id="panel-logistics">
+  <div class="card">
+    <h2>Log custody transfer</h2>
+    <p class="subtitle">Records a handoff event on the blockchain. Products on hold cannot be transferred.</p>
+    <div id="l-hold-warning" class="hold-warning">This product is currently on hold and cannot be transferred until the hold is released.</div>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="l-productId" placeholder="e.g. WIDGET-001" oninput="checkHoldStatus('l')" />
+    </div>
+    <div class="field">
+      <label>Stage</label>
+      <select id="l-stage">
+        <option>Picked up from manufacturer</option>
+        <option>In transit</option>
+        <option>Arrived at warehouse</option>
+        <option>Departed warehouse</option>
+        <option>Out for delivery</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Current location</label>
+      <input type="text" id="l-location" placeholder="e.g. Cleveland, OH" />
+    </div>
+    <button onclick="transferCustody('logistics')">Record transfer</button>
+    <div class="status" id="l-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Update product condition</h2>
+    <p class="subtitle">Report a condition issue and optionally place the product on hold.</p>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="l-cond-productId" placeholder="e.g. WIDGET-001" />
+    </div>
+    <div class="field">
+      <label>Condition</label>
+      <select id="l-condition">
+        <option value="Good">Good - no issues</option>
+        <option value="Damaged">Damaged - physical damage observed</option>
+        <option value="Contaminated">Contaminated - contamination suspected</option>
+        <option value="Under inspection">Under inspection</option>
+        <option value="Resolved">Resolved - issue cleared</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" id="l-cond-notes" placeholder="e.g. Temperature excursion during transit" />
+    </div>
+    <div class="field check-row">
+      <input type="checkbox" id="l-onhold" />
+      <label for="l-onhold">Place product on hold</label>
+    </div>
+    <button onclick="updateCondition('l')">Update condition</button>
+    <div class="status" id="l-cond-status"></div>
+  </div>
+</div>
+
+<!-- RETAILER -->
+<div class="panel" id="panel-retailer">
+  <div class="card">
+    <h2>Receive and verify product</h2>
+    <p class="subtitle">Records receipt at your location. Products on hold cannot be accepted.</p>
+    <div id="r-hold-warning" class="hold-warning">This product is currently on hold and cannot be transferred until the hold is released.</div>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="r-productId" placeholder="e.g. WIDGET-001" oninput="checkHoldStatus('r')" />
+    </div>
+    <div class="field">
+      <label>Your store / location</label>
+      <input type="text" id="r-location" placeholder="e.g. Philadelphia, PA" />
+    </div>
+    <button onclick="transferCustody('retailer')">Confirm receipt</button>
+    <div class="status" id="r-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Update product condition</h2>
+    <p class="subtitle">Report a condition issue on arrival and optionally place the product on hold.</p>
+    <div class="field">
+      <label>Product ID</label>
+      <input type="text" id="r-cond-productId" placeholder="e.g. WIDGET-001" />
+    </div>
+    <div class="field">
+      <label>Condition</label>
+      <select id="r-condition">
+        <option value="Good">Good - no issues</option>
+        <option value="Damaged">Damaged - physical damage observed</option>
+        <option value="Contaminated">Contaminated - contamination suspected</option>
+        <option value="Under inspection">Under inspection</option>
+        <option value="Resolved">Resolved - issue cleared</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" id="r-cond-notes" placeholder="e.g. Seal broken on arrival" />
+    </div>
+    <div class="field check-row">
+      <input type="checkbox" id="r-onhold" />
+      <label for="r-onhold">Place product on hold</label>
+    </div>
+    <button onclick="updateCondition('r')">Update condition</button>
+    <div class="status" id="r-cond-status"></div>
+  </div>
+</div>
+
+<!-- CONSUMER / VERIFY -->
+<div class="panel" id="panel-consumer">
+  <div class="card">
+    <h2>Verify product authenticity</h2>
+    <p class="subtitle">Enter the product ID manually or scan the QR code attached to the product. No wallet required.</p>
+
+    <div class="field">
+      <label>Product ID (from QR code)</label>
+      <input type="text" id="v-productId" placeholder="e.g. WIDGET-001" />
+    </div>
+
+    <div class="btn-row">
+      <button onclick="verifyProduct()">Verify</button>
+      <button class="secondary" onclick="toggleScanner()">Scan QR code</button>
+    </div>
+
+    <!-- Camera scanner -->
+    <div id="scanner-container">
+      <div id="scanner-wrap">
+        <video id="scanner-video" playsinline autoplay muted></video>
+      </div>
+      <p id="scanner-hint" class="section-sublabel">Point the QR code at the camera. It will be detected automatically.</p>
+      <p id="scanner-result"></p>
+      <button class="secondary" style="font-size:0.8rem;padding:6px 16px;" onclick="stopScanner()">Close camera</button>
+    </div>
+
+    <div class="status" id="v-status"></div>
+
+    <div id="v-result" style="display:none">
+      <div class="info-grid" id="v-info-grid"></div>
+      <div id="v-badges" style="margin-top:0.75rem;display:flex;gap:8px;flex-wrap:wrap;"></div>
+
+      <hr class="section-divider" />
+      <p class="section-label">Full custody history</p>
+      <p class="section-sublabel">Every handoff recorded on-chain, oldest first.</p>
+      <table class="history-table">
+        <thead><tr><th>Stage</th><th>Location</th><th>Actor (wallet)</th><th>Time</th></tr></thead>
+        <tbody id="v-history-body"></tbody>
+      </table>
+
+      <hr class="section-divider" />
+      <p class="section-label">Condition history</p>
+      <p class="section-sublabel">All condition updates logged on-chain.</p>
+      <table class="history-table">
+        <thead><tr><th>Condition</th><th>On hold?</th><th>Notes</th><th>Actor</th><th>Time</th></tr></thead>
+        <tbody id="v-condition-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+  const ABI = [
+    "function registerProduct(string memory productId, string memory name, string memory metadata) public",
+    "function transferCustody(string memory productId, string memory stage, string memory location) public",
+    "function updateCondition(string memory productId, string memory condition, bool onHold, string memory notes) public",
+    "function getProduct(string memory productId) public view returns (string memory, string memory, string memory, address, string memory, bool)",
+    "function getHistory(string memory productId) public view returns (tuple(address actor, string stage, string location, uint256 timestamp)[])",
+    "function getConditionHistory(string memory productId) public view returns (tuple(address actor, string condition, bool onHold, string notes, uint256 timestamp)[])",
+    "function isAuthentic(string memory productId) public view returns (bool)"
+  ];
+
+  let provider = null;
+  let signer   = null;
+  let contract = null;
+
+  // ── Scanner state ───────────────────────────────────────────────────
+  let scannerStream    = null;
+  let scannerAnimFrame = null;
+  let scannerActive    = false;
+
+  // ── Restore active tab on load ──────────────────────────────────────
+  window.addEventListener("DOMContentLoaded", () => {
+    const saved = sessionStorage.getItem("activeRole") || "manufacturer";
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".role-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("panel-" + saved).classList.add("active");
+    document.querySelectorAll(".role-tab").forEach(t => {
+      if (t.textContent.toLowerCase().includes(saved === "consumer" ? "consumer" : saved)) {
+        t.classList.add("active");
+      }
+    });
+  });
+
+  // ── MetaMask account switching ──────────────────────────────────────
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", async (accounts) => {
+      if (accounts.length === 0) {
+        document.getElementById("wallet-status").textContent = "Not connected";
+        document.getElementById("wallet-status").classList.remove("connected");
+        document.getElementById("connect-btn").textContent = "Connect MetaMask";
+        document.getElementById("connect-btn").disabled = false;
+        signer = null; contract = null;
+      } else {
+        try {
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer   = await provider.getSigner();
+          contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+          const addr  = await signer.getAddress();
+          const short = addr.slice(0,6) + "..." + addr.slice(-4);
+          document.getElementById("wallet-status").textContent = "Connected: " + short;
+          document.getElementById("wallet-status").classList.add("connected");
+          document.getElementById("connect-btn").textContent = "Connected";
+          document.getElementById("connect-btn").disabled = true;
+        } catch (err) { console.error("Account switch error:", err); }
+      }
+    });
+  }
+
+  async function connectWallet() {
+    if (!window.ethereum) { alert("MetaMask not found. Please install it from metamask.io"); return; }
+    try {
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      signer   = await provider.getSigner();
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      const addr  = await signer.getAddress();
+      const short = addr.slice(0,6) + "..." + addr.slice(-4);
+      document.getElementById("wallet-status").textContent = "Connected: " + short;
+      document.getElementById("wallet-status").classList.add("connected");
+      document.getElementById("connect-btn").textContent = "Connected";
+      document.getElementById("connect-btn").disabled = true;
+    } catch (err) { alert("Connection failed: " + err.message); }
+  }
+
+  function getReadContract() {
+    const rp = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+    return new ethers.Contract(CONTRACT_ADDRESS, ABI, rp);
+  }
+
+  function switchRole(role, evt) {
+    stopScanner();
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".role-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("panel-" + role).classList.add("active");
+    evt.target.classList.add("active");
+    sessionStorage.setItem("activeRole", role);
+  }
+
+  function setStatus(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = "status " + type;
+    el.textContent = msg;
+  }
+
+  async function checkHoldStatus(prefix) {
+    const productId = document.getElementById(prefix + "-productId").value.trim();
+    const warning   = document.getElementById(prefix + "-hold-warning");
+    if (!productId || !warning) return;
+    try {
+      const rc = getReadContract();
+      const authentic = await rc.isAuthentic(productId);
+      if (!authentic) { warning.classList.remove("visible"); return; }
+      const result = await rc.getProduct(productId);
+      warning.classList.toggle("visible", result[5]);
+    } catch (e) { warning.classList.remove("visible"); }
+  }
+
+  // ── QR Scanner ───────────────────────────────────────────────────────
+  async function toggleScanner() {
+    if (scannerActive) { stopScanner(); return; }
+
+    const container = document.getElementById("scanner-container");
+    const video     = document.getElementById("scanner-video");
+    const hint      = document.getElementById("scanner-hint");
+    const result    = document.getElementById("scanner-result");
+
+    result.classList.remove("visible");
+    result.textContent = "";
+    hint.textContent   = "Point the QR code at the camera. It will be detected automatically.";
+
+    try {
+      scannerStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      video.srcObject = scannerStream;
+      await video.play();
+      container.classList.add("visible");
+      scannerActive = true;
+      scanFrame();
+    } catch (err) {
+      alert("Camera access denied or unavailable. Please allow camera permissions and try again.");
+    }
+  }
+
+  function scanFrame() {
+    const video  = document.getElementById("scanner-video");
+    const result = document.getElementById("scanner-result");
+
+    if (!scannerActive) return;
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      scannerAnimFrame = requestAnimationFrame(scanFrame);
+      return;
+    }
+
+    // Draw current frame to an offscreen canvas for jsQR to analyse
+    const canvas = document.createElement("canvas");
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: "dontInvert"
+    });
+
+    if (code) {
+      // QR code detected — fill the input, show confirmation, stop camera
+      document.getElementById("v-productId").value = code.data;
+      result.textContent = "Detected: " + code.data;
+      result.classList.add("visible");
+      stopScanner();
+      // Auto-trigger verify
+      verifyProduct();
+      return;
+    }
+
+    scannerAnimFrame = requestAnimationFrame(scanFrame);
+  }
+
+  function stopScanner() {
+    scannerActive = false;
+    if (scannerAnimFrame) { cancelAnimationFrame(scannerAnimFrame); scannerAnimFrame = null; }
+    if (scannerStream)    { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+    const video     = document.getElementById("scanner-video");
+    const container = document.getElementById("scanner-container");
+    if (video)     { video.srcObject = null; }
+    if (container) { container.classList.remove("visible"); }
+  }
+
+  // ── Register product ─────────────────────────────────────────────────
+  async function registerProduct() {
+    if (!contract) { alert("Please connect MetaMask first."); return; }
+    const productId = document.getElementById("m-productId").value.trim();
+    const name      = document.getElementById("m-name").value.trim();
+    const metadata  = document.getElementById("m-metadata").value.trim();
+    if (!productId || !name || !metadata) { setStatus("m-status","error","Please fill in all fields."); return; }
+    try {
+      setStatus("m-status","loading","Sending transaction to blockchain...");
+      const tx = await contract.registerProduct(productId, name, metadata);
+      setStatus("m-status","loading","Waiting for confirmation (tx: " + tx.hash.slice(0,10) + "...)");
+      await tx.wait();
+      setStatus("m-status","success","Product registered successfully on-chain.");
+      generateQR(productId);
+    } catch (err) { setStatus("m-status","error","Error: " + (err.reason || err.message)); }
+  }
+
+  function generateQR(productId) {
+    const container = document.getElementById("qr-container");
+    document.getElementById("qr-code").innerHTML = "";
+    new QRCode(document.getElementById("qr-code"), { text: productId, width: 160, height: 160 });
+    document.getElementById("qr-label").textContent = "Encodes: " + productId;
+    container.classList.add("visible");
+  }
+
+  // ── Transfer custody ─────────────────────────────────────────────────
+  async function transferCustody(role) {
+    if (!contract) { alert("Please connect MetaMask first."); return; }
+    let productId, stage, location, statusId;
+    if (role === "logistics") {
+      productId = document.getElementById("l-productId").value.trim();
+      stage     = document.getElementById("l-stage").value;
+      location  = document.getElementById("l-location").value.trim();
+      statusId  = "l-status";
+    } else {
+      productId = document.getElementById("r-productId").value.trim();
+      stage     = "Received by retailer";
+      location  = document.getElementById("r-location").value.trim();
+      statusId  = "r-status";
+    }
+    if (!productId || !location) { setStatus(statusId,"error","Please fill in all fields."); return; }
+    try {
+      setStatus(statusId,"loading","Sending transaction...");
+      const tx = await contract.transferCustody(productId, stage, location);
+      setStatus(statusId,"loading","Waiting for confirmation...");
+      await tx.wait();
+      setStatus(statusId,"success","Custody transfer recorded on-chain.");
+    } catch (err) {
+      const msg = err.reason || err.message || "";
+      if (msg.includes("on hold")) {
+        setStatus(statusId,"error","Transfer blocked: this product is on hold due to a condition issue. The hold must be released before it can move further.");
+      } else {
+        setStatus(statusId,"error","Error: " + msg);
+      }
+    }
+  }
+
+  // ── Update condition ─────────────────────────────────────────────────
+  async function updateCondition(prefix) {
+    if (!contract) { alert("Please connect MetaMask first."); return; }
+    const productId = document.getElementById(prefix + "-cond-productId").value.trim();
+    const condition = document.getElementById(prefix + "-condition").value;
+    const notes     = document.getElementById(prefix + "-cond-notes").value.trim();
+    const onHold    = document.getElementById(prefix + "-onhold").checked;
+    const statusId  = prefix + "-cond-status";
+    if (!productId) { setStatus(statusId,"error","Please enter a product ID."); return; }
+    try {
+      setStatus(statusId,"loading","Sending condition update to blockchain...");
+      const tx = await contract.updateCondition(productId, condition, onHold, notes);
+      setStatus(statusId,"loading","Waiting for confirmation...");
+      await tx.wait();
+      const msg = onHold
+        ? "Condition updated and product placed on hold. Custody transfers are now blocked."
+        : "Condition updated. Product is not on hold.";
+      setStatus(statusId, onHold ? "warning" : "success", msg);
+    } catch (err) { setStatus(statusId,"error","Error: " + (err.reason || err.message)); }
+  }
+
+  function conditionDot(condition) {
+    if (condition === "Good" || condition === "Resolved") return '<span class="condition-dot dot-good"></span>';
+    if (condition === "Under inspection") return '<span class="condition-dot dot-warning"></span>';
+    return '<span class="condition-dot dot-danger"></span>';
+  }
+
+  // ── Verify product ───────────────────────────────────────────────────
+  async function verifyProduct() {
+    const productId = document.getElementById("v-productId").value.trim();
+    if (!productId) { setStatus("v-status","error","Please enter a product ID."); return; }
+    document.getElementById("v-result").style.display = "none";
+    try {
+      setStatus("v-status","loading","Reading from blockchain...");
+      const rc = getReadContract();
+      const authentic = await rc.isAuthentic(productId);
+      if (!authentic) { setStatus("v-status","error","Product not found on blockchain. This may be counterfeit."); return; }
+
+      const result   = await rc.getProduct(productId);
+      const pid      = result[0], name = result[1], metadata = result[2];
+      const mfr      = result[3], condition = result[4], onHold = result[5];
+      const history  = await rc.getHistory(productId);
+      const condHist = await rc.getConditionHistory(productId);
+
+      setStatus("v-status","success","Product found on blockchain.");
+
+      document.getElementById("v-info-grid").innerHTML = `
+        <div class="info-cell"><div class="info-label">Product ID</div><div class="info-value">${pid}</div></div>
+        <div class="info-cell"><div class="info-label">Name</div><div class="info-value">${name}</div></div>
+        <div class="info-cell" style="grid-column:span 2"><div class="info-label">Metadata</div><div class="info-value">${metadata}</div></div>
+        <div class="info-cell"><div class="info-label">Current condition</div><div class="info-value">${conditionDot(condition)}${condition}</div></div>
+        <div class="info-cell"><div class="info-label">Hold status</div><div class="info-value">${onHold ? "On hold" : "Not on hold"}</div></div>
+        <div class="info-cell" style="grid-column:span 2"><div class="info-label">Registered by (manufacturer wallet)</div><div class="info-value addr">${mfr}</div></div>
+      `;
+
+      document.getElementById("v-badges").innerHTML =
+        `<span class="badge authentic">Authentic - verified on blockchain</span>` +
+        (onHold ? `<span class="badge hold">On hold - transfers blocked</span>` : "");
+
+      const tbody = document.getElementById("v-history-body");
+      tbody.innerHTML = "";
+      history.forEach(evt => {
+        const date  = new Date(Number(evt.timestamp) * 1000).toLocaleString();
+        const short = evt.actor.slice(0,6) + "..." + evt.actor.slice(-4);
+        tbody.innerHTML += `<tr><td>${evt.stage}</td><td>${evt.location}</td><td class="addr" title="${evt.actor}">${short}</td><td>${date}</td></tr>`;
+      });
+
+      const cbody = document.getElementById("v-condition-body");
+      cbody.innerHTML = "";
+      if (condHist.length === 0) {
+        cbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);font-style:italic">No condition updates recorded.</td></tr>`;
+      } else {
+        condHist.forEach(evt => {
+          const date  = new Date(Number(evt.timestamp) * 1000).toLocaleString();
+          const short = evt.actor.slice(0,6) + "..." + evt.actor.slice(-4);
+          cbody.innerHTML += `<tr><td>${conditionDot(evt.condition)}${evt.condition}</td><td>${evt.onHold ? "Yes" : "No"}</td><td>${evt.notes || "-"}</td><td class="addr" title="${evt.actor}">${short}</td><td>${date}</td></tr>`;
+        });
+      }
+
+      document.getElementById("v-result").style.display = "block";
+    } catch (err) { setStatus("v-status","error","Error: " + err.message); }
+  }
+</script>
+</body>
+</html>

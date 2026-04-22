@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-43b0c817be3b52b61779d377739927425d79140f",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.4.0"
+  },
+  "userSourceNameMap": {
+    "contracts/ProductRegistry.sol": "project/contracts/ProductRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/ProductRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.28;\r\n\r\ncontract ProductRegistry {\r\n\r\n    struct CustodyEvent {\r\n        address actor;\r\n        string  stage;\r\n        string  location;\r\n        uint256 timestamp;\r\n    }\r\n\r\n    struct ConditionEvent {\r\n        address actor;\r\n        string  condition;\r\n        bool    onHold;\r\n        string  notes;\r\n        uint256 timestamp;\r\n    }\r\n\r\n    struct Product {\r\n        string  productId;\r\n        string  name;\r\n        string  metadata;\r\n        address manufacturer;\r\n        bool    exists;\r\n        string  currentCondition;\r\n        bool    onHold;\r\n    }\r\n\r\n    mapping(string => Product) private products;\r\n    mapping(string => CustodyEvent[]) private custodyHistory;\r\n    mapping(string => ConditionEvent[]) private conditionHistory;\r\n\r\n    event ProductRegistered(\r\n        string  productId,\r\n        string  name,\r\n        address manufacturer,\r\n        uint256 timestamp\r\n    );\r\n\r\n    event CustodyTransferred(\r\n        string  productId,\r\n        address actor,\r\n        string  stage,\r\n        string  location,\r\n        uint256 timestamp\r\n    );\r\n\r\n    event ConditionUpdated(\r\n        string  productId,\r\n        address actor,\r\n        string  condition,\r\n        bool    onHold,\r\n        string  notes,\r\n        uint256 timestamp\r\n    );\r\n\r\n    function registerProduct(\r\n        string memory productId,\r\n        string memory name,\r\n        string memory metadata\r\n    ) public {\r\n        require(!products[productId].exists, \"Product already registered\");\r\n\r\n        products[productId] = Product({\r\n            productId:        productId,\r\n            name:             name,\r\n            metadata:         metadata,\r\n            manufacturer:     msg.sender,\r\n            exists:           true,\r\n            currentCondition: \"Good\",\r\n            onHold:           false\r\n        });\r\n\r\n        custodyHistory[productId].push(CustodyEvent({\r\n            actor:     msg.sender,\r\n            stage:     \"Manufactured\",\r\n            location:  metadata,\r\n            timestamp: block.timestamp\r\n        }));\r\n\r\n        emit ProductRegistered(productId, name, msg.sender, block.timestamp);\r\n    }\r\n\r\n    function transferCustody(\r\n        string memory productId,\r\n        string memory stage,\r\n        string memory location\r\n    ) public {\r\n        require(products[productId].exists, \"Product not found\");\r\n        require(!products[productId].onHold, \"Product is on hold due to condition issue - resolve before transferring\");\r\n\r\n        custodyHistory[productId].push(CustodyEvent({\r\n            actor:     msg.sender,\r\n            stage:     stage,\r\n            location:  location,\r\n            timestamp: block.timestamp\r\n        }));\r\n\r\n        emit CustodyTransferred(productId, msg.sender, stage, location, block.timestamp);\r\n    }\r\n\r\n    function updateCondition(\r\n        string memory productId,\r\n        string memory condition,\r\n        bool          onHold,\r\n        string memory notes\r\n    ) public {\r\n        require(products[productId].exists, \"Product not found\");\r\n\r\n        products[productId].currentCondition = condition;\r\n        products[productId].onHold           = onHold;\r\n\r\n        conditionHistory[productId].push(ConditionEvent({\r\n            actor:     msg.sender,\r\n            condition: condition,\r\n            onHold:    onHold,\r\n            notes:     notes,\r\n            timestamp: block.timestamp\r\n        }));\r\n\r\n        emit ConditionUpdated(productId, msg.sender, condition, onHold, notes, block.timestamp);\r\n    }\r\n\r\n    function getProduct(string memory productId)\r\n        public view\r\n        returns (string memory, string memory, string memory, address, string memory, bool)\r\n    {\r\n        require(products[productId].exists, \"Product not found\");\r\n        Product memory p = products[productId];\r\n        return (p.productId, p.name, p.metadata, p.manufacturer, p.currentCondition, p.onHold);\r\n    }\r\n\r\n    function getHistory(string memory productId)\r\n        public view\r\n        returns (CustodyEvent[] memory)\r\n    {\r\n        require(products[productId].exists, \"Product not found\");\r\n        return custodyHistory[productId];\r\n    }\r\n\r\n    function getConditionHistory(string memory productId)\r\n        public view\r\n        returns (ConditionEvent[] memory)\r\n    {\r\n        require(products[productId].exists, \"Product not found\");\r\n        return conditionHistory[productId];\r\n    }\r\n\r\n    function isAuthentic(string memory productId)\r\n        public view\r\n        returns (bool)\r\n    {\r\n        return products[productId].exists;\r\n    }\r\n}"
+      }
+    }
+  }
+}
