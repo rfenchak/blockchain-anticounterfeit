@@ -235,6 +235,11 @@ This prototype was developed as part of a capstone research project on blockchai
 
 ---
 
+## Contributors
+[Ryan Fenchak](https://github.com/rfenchak)
+
+---
+
 ## License
 
 MIT License. This project is intended for educational and research purposes.
