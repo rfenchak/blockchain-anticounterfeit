@@ -66,7 +66,7 @@ npm install
 
 ## Running the Project
 
-### Option A — Startup script (Windows)
+### Option A: Startup script (Windows)
 
 Double-click `start.bat` in the project folder. It will automatically start the blockchain node, deploy the contract, and launch the web server. Then open your browser to:
 
@@ -74,7 +74,7 @@ Double-click `start.bat` in the project folder. It will automatically start the 
 http://localhost:3000
 ```
 
-### Option B — Manual startup
+### Option B: Manual startup
 
 Open two terminal windows in the project folder.
 
@@ -126,7 +126,7 @@ You don't need a Verify account as it is read only.
 
 ---
 
-## Usage — End-to-End Demo
+## Usage
 
 ### 1. Register a product (Manufacturer)
 
@@ -191,7 +191,7 @@ blockchain-anticounterfeit/
 | `getConditionHistory(productId)` | view | Returns full condition update history |
 | `isAuthentic(productId)` | view | Returns true if product exists on chain |
 
-### Key design decisions
+### Key design factors
 
 **Hold enforcement in the contract, not the UI.** The `require(!products[productId].onHold, ...)` check in `transferCustody` means the blockchain itself rejects transfers for held products. Even if someone bypassed the frontend and called the function directly, the hold would still be enforced.
 
@@ -205,11 +205,11 @@ blockchain-anticounterfeit/
 
 This prototype is simplified for research purposes. A production system would address the following:
 
-- **The physical-digital link problem** — this system cannot prevent someone from copying a QR code onto a fake product. Hardware solutions such as NFC tags with physically unclonable functions (PUFs) would strengthen this link.
-- **Role-based access control** — currently any wallet can call any function. A production system would restrict registration to verified manufacturers and custody updates to authorized supply chain actors.
-- **Persistent network** — this runs on a local blockchain that resets on restart. A real deployment would use a persistent testnet or private permissioned network.
-- **Scalability** — the Ethereum-based architecture used here has known throughput limitations. High-volume supply chains may require a Layer 2 solution or a purpose-built chain like Hyperledger Fabric.
-- **Gas optimization** — storing strings on-chain is expensive in production. Product IDs and metadata would typically be hashed or stored off-chain with only a hash committed to the ledger.
+- **The physical-digital link problem** this system cannot prevent someone from copying a QR code onto a fake product. Hardware solutions such as NFC tags with physically unclonable functions (PUFs) would strengthen this link.
+- **Role-based access control**: currently any wallet can call any function. A production system would restrict registration to verified manufacturers and custody updates to authorized supply chain actors.
+- **Persistent network**: this runs on a local blockchain that resets on restart. A real deployment would use a persistent testnet or private permissioned network.
+- **Scalability**: the Ethereum-based architecture used here has known throughput limitations. High-volume supply chains may require a Layer 2 solution or a purpose-built chain like Hyperledger Fabric.
+- **Gas optimization**: storing strings on-chain is expensive in production. Product IDs and metadata would typically be hashed or stored off-chain with only a hash committed to the ledger.
 
 ---
 
